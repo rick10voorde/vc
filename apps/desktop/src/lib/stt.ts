@@ -17,6 +17,7 @@ export class DeepgramSTT {
   private onError: (error: string) => void;
   private apiUrl: string;
   private token: string = "";
+  private closeResolve: (() => void) | null = null;
 
   constructor(
     apiUrl: string,
@@ -52,11 +53,27 @@ export class DeepgramSTT {
       this.token = tokenData.token;
       console.log("✓ Received token:", this.token.substring(0, 20) + "...");
 
-      // Get microphone access
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Get microphone access with high-quality audio settings
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+        }
+      });
 
-      // Connect to Deepgram WebSocket
-      const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=nl&punctuate=true&interim_results=true`;
+      // Connect to Deepgram WebSocket with optimized parameters for Dutch
+      const deepgramUrl = `wss://api.deepgram.com/v1/listen?` + new URLSearchParams({
+        model: 'nova-2',
+        language: 'nl',
+        punctuate: 'true',
+        smart_format: 'true',              // Helps with formatting names and special terms
+        interim_results: 'true',
+        endpointing: '1000',
+        vad_events: 'true',
+      }).toString();
 
       this.ws = new WebSocket(deepgramUrl, ['token', this.token]);
 
@@ -85,6 +102,10 @@ export class DeepgramSTT {
 
       this.ws.onclose = () => {
         console.log("✓ Deepgram connection closed");
+        if (this.closeResolve) {
+          this.closeResolve();
+          this.closeResolve = null;
+        }
       };
     } catch (error: any) {
       console.error("STT start error:", error);
@@ -95,8 +116,14 @@ export class DeepgramSTT {
   private startRecording() {
     if (!this.stream || !this.ws) return;
 
+    // Use best available audio format
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+
     this.mediaRecorder = new MediaRecorder(this.stream, {
-      mimeType: "audio/webm",
+      mimeType: mimeType,
+      audioBitsPerSecond: 128000,
     });
 
     this.mediaRecorder.addEventListener("dataavailable", (event) => {
@@ -105,8 +132,9 @@ export class DeepgramSTT {
       }
     });
 
-    this.mediaRecorder.start(250); // Send chunks every 250ms
-    console.log("✓ Recording started");
+    // Send smaller chunks for faster response (100ms instead of 250ms)
+    this.mediaRecorder.start(100);
+    console.log("✓ Recording started with", mimeType);
   }
 
   stop() {
@@ -135,6 +163,27 @@ export class DeepgramSTT {
     }
 
     console.log("✓ Recording stopped");
+  }
+
+  // Wait for WebSocket to fully close and receive all final transcripts
+  waitForClose(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+        // Already closed
+        resolve();
+      } else {
+        // Wait for onclose event
+        this.closeResolve = resolve;
+        // Timeout after 5 seconds just in case
+        setTimeout(() => {
+          if (this.closeResolve) {
+            console.warn("⚠️ WebSocket close timeout reached");
+            this.closeResolve();
+            this.closeResolve = null;
+          }
+        }, 5000);
+      }
+    });
   }
 
   isActive(): boolean {

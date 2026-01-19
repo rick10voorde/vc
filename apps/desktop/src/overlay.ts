@@ -110,7 +110,10 @@ async function startRecording() {
   partialTranscript = "";
 
   setIndicatorState('recording');
-  statusText.textContent = "Listening...";
+  statusText.textContent = "Recording";
+
+  // Longer delay to prevent hotkey keys (Alt+Z) from being captured
+  await new Promise((resolve) => setTimeout(resolve, 150));
 
   try {
     // Initialize STT client
@@ -134,40 +137,39 @@ async function stopRecording() {
 
   isRecording = false;
   setIndicatorState('processing');
-  statusText.textContent = "Processing...";
+  statusText.textContent = "Processing";
 
-  // Stop STT
+  // Stop STT and wait for WebSocket to close (all final transcripts will arrive before close)
+  const client = sttClient; // Keep reference
   sttClient.stop();
   sttClient = null;
 
-  // Wait a bit for final transcript
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  console.log("⏳ Waiting for all transcripts to arrive...");
+  await client.waitForClose();
+  console.log("✓ WebSocket closed, all transcripts received");
 
-  // Refine and insert the text automatically
-  if (fullTranscript.trim()) {
-    try {
-      statusText.textContent = "Refining...";
-      const refined = await refineText(fullTranscript, currentProfile?.id);
+  // Combine full transcript + any remaining partial (in case final didn't arrive yet)
+  const completeTranscript = fullTranscript + (partialTranscript ? (fullTranscript ? " " : "") + partialTranscript : "");
 
-      fullTranscript = refined;
-
-      // Automatically insert the text
-      await insertText(refined);
-    } catch (error: any) {
-      console.error("Refine error:", error);
-      console.warn("⚠️ Refining failed, using raw transcript instead");
-
-      // Fallback: use raw transcript if refining fails
-      await insertText(fullTranscript);
-    }
+  // Insert raw transcript directly (no AI refinement)
+  if (completeTranscript.trim()) {
+    console.log("📋 Inserting complete transcript:", completeTranscript);
+    console.log("   - Final parts:", fullTranscript);
+    console.log("   - Partial (unfinalised):", partialTranscript);
+    await insertText(completeTranscript);
   } else {
+    console.log("⚠️ No speech detected");
     showError("No speech detected");
   }
+
+  // Note: We don't auto-pause/resume media anymore
+  // MediaPlayPause is a toggle and causes issues (can start Spotify when nothing was playing)
+  // User can manually pause/resume their media if needed
 
   // Reset to idle state
   setTimeout(() => {
     setIndicatorState('idle');
-    statusText.textContent = "Hold Ctrl+Shift+D";
+    statusText.textContent = "Hold Alt+Z";
     fullTranscript = "";
     partialTranscript = "";
   }, 2000);
@@ -175,10 +177,11 @@ async function stopRecording() {
 
 function handleTranscript(text: string, isFinal: boolean) {
   if (isFinal) {
-    // Add final transcript to full text
+    // Add final transcript to full text (multiple finals can come in during one recording)
     fullTranscript += (fullTranscript ? " " : "") + text;
     partialTranscript = "";
-    console.log("✓ Final transcript:", fullTranscript);
+    console.log("✓ Final transcript part received:", text);
+    console.log("   Full transcript so far:", fullTranscript);
   } else {
     // Update partial transcript (interim results)
     partialTranscript = text;
@@ -200,60 +203,97 @@ function showError(message: string) {
 
   setTimeout(() => {
     setIndicatorState('idle');
-    statusText.textContent = "Hold Ctrl+Shift+D";
+    statusText.textContent = "Hold Alt+Z";
   }, 3000);
 }
 
-// Process voice commands
-function processVoiceCommands(text: string): string {
-  let processed = text;
 
-  // Voice command mappings (case insensitive)
-  const commands = [
-    { pattern: /\b(nieuwe regel|new line)\b/gi, replacement: '\n' },
-    { pattern: /\b(nieuwe paragraaf|new paragraph)\b/gi, replacement: '\n\n' },
-    { pattern: /\b(punt|period)\b/gi, replacement: '.' },
-    { pattern: /\b(komma|comma)\b/gi, replacement: ',' },
-    { pattern: /\b(vraagteken|question mark)\b/gi, replacement: '?' },
-    { pattern: /\b(uitroepteken|exclamation mark)\b/gi, replacement: '!' },
-    { pattern: /\b(dubbele punt|colon)\b/gi, replacement: ':' },
-    { pattern: /\b(puntkomma|semicolon)\b/gi, replacement: ';' },
-    { pattern: /\b(gedachtestreepje|dash)\b/gi, replacement: ' - ' },
-    { pattern: /\b(haakje open|open bracket)\b/gi, replacement: '(' },
-    { pattern: /\b(haakje sluiten|close bracket)\b/gi, replacement: ')' },
-  ];
+// Fix common tech/English words that Dutch STT gets wrong
+function fixTechTerms(text: string): string {
+  const corrections: Record<string, string> = {
+    // Git & GitHub
+    'gids': 'git',
+    'git hub': 'GitHub',
+    'get hub': 'GitHub',
+    'get-up': 'GitHub',
+    'github': 'GitHub',
 
-  // Apply each command
-  commands.forEach(({ pattern, replacement }) => {
-    processed = processed.replace(pattern, replacement);
+    // Common commands
+    'pus': 'push',
+    'pol': 'pull',
+    'commits': 'commit',
+    'kloon': 'clone',
+    'merge': 'merge',
+    'branch': 'branch',
+
+    // Programming terms
+    'javascript': 'JavaScript',
+    'typescript': 'TypeScript',
+    'react': 'React',
+    'node': 'Node',
+    'npm': 'npm',
+    'api': 'API',
+    'json': 'JSON',
+    'html': 'HTML',
+    'css': 'CSS',
+
+    // Common tech words
+    'database': 'database',
+    'server': 'server',
+    'client': 'client',
+    'code': 'code',
+    'debug': 'debug',
+    'deploy': 'deploy',
+  };
+
+  let corrected = text;
+
+  // Replace each term (case-insensitive but preserve original if already correct)
+  Object.entries(corrections).forEach(([wrong, right]) => {
+    // Match whole words only (with word boundaries)
+    const regex = new RegExp(`\\b${wrong}\\b`, 'gi');
+    corrected = corrected.replace(regex, right);
   });
 
-  // Clean up extra spaces before punctuation
-  processed = processed.replace(/\s+([.,!?:;])/g, '$1');
+  if (corrected !== text) {
+    console.log("🔧 Tech terms corrected:", { original: text, corrected });
+  }
 
-  // Ensure space after punctuation (except newlines)
-  processed = processed.replace(/([.,!?:;])(?=[^\s\n])/g, '$1 ');
-
-  console.log("Voice commands processed:", { original: text, processed });
-
-  return processed;
+  return corrected;
 }
 
 async function insertText(text: string) {
   try {
-    // Process voice commands
-    const processedText = processVoiceCommands(text);
+    // Fix common tech terms that Dutch STT gets wrong
+    const correctedText = fixTechTerms(text);
 
     // Write to clipboard
-    await writeText(processedText);
-    console.log("✓ Text written to clipboard:", processedText);
+    await writeText(correctedText);
+    console.log("✓ Text written to clipboard:", correctedText);
+
+    // Hide overlay to ensure previous window regains focus
+    const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const window = getCurrentWebviewWindow();
+    await window.hide();
+    console.log("👁️ Overlay hidden to restore focus");
+
+    // Give more time for previous window to regain focus (especially terminals)
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // Automatically paste using Ctrl+V simulation
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("simulate_paste");
-
-    statusText.textContent = "✓ Text inserted!";
     console.log("✓ Text automatically pasted");
+
+    // Show overlay again briefly to show success
+    await window.show();
+    statusText.textContent = "Inserted";
+
+    // Hide again after 1 second
+    setTimeout(async () => {
+      await window.hide();
+    }, 1000);
+
   } catch (error) {
     console.error("Failed to insert text:", error);
     showError("Failed to insert text");
@@ -272,7 +312,7 @@ async function loadProfile() {
         "✓ Loaded profile:",
         currentProfile?.app_key || "No default profile"
       );
-      statusText.textContent = `Hold Ctrl+Shift+D`;
+      statusText.textContent = `Hold Alt+Z`;
     } else {
       statusText.textContent = "Please sign in first";
       setIndicatorState('error');
@@ -299,7 +339,7 @@ async function loadProfile() {
   await loadProfile();
 
   console.log("✓ vochat.io indicator ready");
-  console.log("✓ Hold Ctrl+Shift+D to dictate");
+  console.log("✓ Hold Alt+Z to dictate");
   console.log("📍 Indicator element:", indicator);
   console.log("📍 Status text:", statusText.textContent);
 })();

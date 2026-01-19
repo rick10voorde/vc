@@ -96,36 +96,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // In development mode, use API key directly (safe for local testing)
-      if (isDevelopment) {
-        token = deepgramApiKey;
-        expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-      } else {
-        // For production: generate temporary token via Deepgram API
-        const response = await fetch(
-          "https://api.deepgram.com/v1/auth/grant",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Token ${deepgramApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({}),
-          }
-        );
-
-        if (!response.ok) {
-          console.error("Deepgram token error:", await response.text());
-          return NextResponse.json(
-            { error: "Failed to generate STT token" },
-            { status: 500, headers: corsHeaders }
-          );
-        }
-
-        const data = await response.json();
-        token = data.access_token;
-        expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
-      }
+      // For browser WebSocket, use raw API key via Sec-WebSocket-Protocol
+      // This is the recommended method per Deepgram docs
+      token = deepgramApiKey;
+      expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
     } else {
       return NextResponse.json(
         { error: "Unsupported provider" },

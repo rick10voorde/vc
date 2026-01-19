@@ -4,7 +4,8 @@
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use rdev::{listen, Event, EventType, Key};
+use std::sync::{Arc, Mutex};
 
 // State to track overlay visibility and recording
 struct AppState {
@@ -45,17 +46,33 @@ fn hide_overlay(app: AppHandle, state: State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn simulate_paste() -> Result<(), String> {
+fn pause_media() -> Result<(), String> {
     use enigo::{Enigo, Key, Keyboard, Settings};
-
-    // Small delay to ensure clipboard is ready
-    std::thread::sleep(std::time::Duration::from_millis(100));
 
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
 
-    // Simulate Ctrl+V
+    // Press Play/Pause media key to pause YouTube, Spotify, etc.
+    enigo.key(Key::MediaPlayPause, enigo::Direction::Click).map_err(|e| e.to_string())?;
+
+    println!("✓ Media paused");
+
+    Ok(())
+}
+
+#[tauri::command]
+fn simulate_paste() -> Result<(), String> {
+    use enigo::{Enigo, Key, Keyboard, Settings};
+
+    // Much longer delay to ensure previous window has focus (especially for terminals)
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+
+    // Simulate Ctrl+V with longer delays between key events
     enigo.key(Key::Control, enigo::Direction::Press).map_err(|e| e.to_string())?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
     enigo.key(Key::Unicode('v'), enigo::Direction::Click).map_err(|e| e.to_string())?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
     enigo.key(Key::Control, enigo::Direction::Release).map_err(|e| e.to_string())?;
 
     println!("✓ Simulated Ctrl+V paste");
@@ -91,28 +108,11 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, shortcut, event| {
-                    println!("🎹 Global shortcut: {:?}, state: {:?}", shortcut, event.state);
-
-                    // Emit event to overlay window
-                    if let Some(window) = app.get_webview_window("overlay") {
-                        let event_name = match event.state {
-                            ShortcutState::Pressed => "hotkey-pressed",
-                            ShortcutState::Released => "hotkey-released",
-                        };
-                        let _ = window.emit(event_name, ());
-                        println!("✓ Emitted {} to overlay", event_name);
-                    }
-                })
-                .build(),
-        )
         .manage(AppState {
             overlay_visible: std::sync::Mutex::new(false),
             is_recording: std::sync::Mutex::new(false),
         })
-        .invoke_handler(tauri::generate_handler![toggle_overlay, hide_overlay, simulate_paste])
+        .invoke_handler(tauri::generate_handler![toggle_overlay, hide_overlay, simulate_paste, pause_media])
         .setup(|app| {
             // Create tray icon with menu
             let quit_item = MenuItemBuilder::with_id("quit", "Quit vochat.io").build(app)?;
@@ -150,19 +150,76 @@ fn main() {
             // Create overlay window at startup (always visible, small indicator)
             create_overlay_window(&app.handle())?;
 
-            // Register global hotkey: Ctrl + Shift + D (temporary for testing)
-            // TODO: Change to Ctrl + Win once we figure out Win key support
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyD);
+            // Setup keyboard listener for Alt + Z detection
+            let app_handle = app.handle().clone();
+            let alt_pressed = Arc::new(Mutex::new(false));
+            let z_pressed = Arc::new(Mutex::new(false));
+            let both_pressed = Arc::new(Mutex::new(false));
 
-            match app.global_shortcut().register(shortcut) {
-                Ok(_) => {
-                    println!("✓ vochat.io desktop initialized");
-                    println!("✓ Hold Ctrl + Shift + D to dictate");
+            let alt_clone = Arc::clone(&alt_pressed);
+            let z_clone = Arc::clone(&z_pressed);
+            let both_clone = Arc::clone(&both_pressed);
+
+            std::thread::spawn(move || {
+                if let Err(error) = listen(move |event: Event| {
+                    match event.event_type {
+                        EventType::KeyPress(key) => {
+                            match key {
+                                Key::Alt | Key::AltGr => {
+                                    *alt_clone.lock().unwrap() = true;
+                                }
+                                Key::KeyZ => {
+                                    *z_clone.lock().unwrap() = true;
+                                }
+                                _ => {}
+                            }
+
+                            // Check if both are pressed
+                            let alt = *alt_clone.lock().unwrap();
+                            let z = *z_clone.lock().unwrap();
+                            let mut both = both_clone.lock().unwrap();
+
+                            if alt && z && !*both {
+                                *both = true;
+                                if let Some(window) = app_handle.get_webview_window("overlay") {
+                                    let _ = window.emit("hotkey-pressed", ());
+                                    println!("✓ Alt + Z pressed");
+                                }
+                            }
+                        }
+                        EventType::KeyRelease(key) => {
+                            match key {
+                                Key::Alt | Key::AltGr => {
+                                    *alt_clone.lock().unwrap() = false;
+                                }
+                                Key::KeyZ => {
+                                    *z_clone.lock().unwrap() = false;
+                                }
+                                _ => {}
+                            }
+
+                            // Check if either was released
+                            let alt = *alt_clone.lock().unwrap();
+                            let z = *z_clone.lock().unwrap();
+                            let mut both = both_clone.lock().unwrap();
+
+                            if *both && (!alt || !z) {
+                                *both = false;
+                                if let Some(window) = app_handle.get_webview_window("overlay") {
+                                    let _ = window.emit("hotkey-released", ());
+                                    println!("✓ Alt + Z released");
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }) {
+                    eprintln!("Keyboard listener error: {:?}", error);
                 }
-                Err(e) => {
-                    eprintln!("✗ Failed to register global hotkey: {}", e);
-                }
-            }
+            });
+
+            println!("✓ vochat.io desktop initialized");
+            println!("✓ Hold Alt + Z to dictate");
 
             Ok(())
         })

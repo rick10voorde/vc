@@ -129,7 +129,7 @@ IMPORTANT: The input text is in ${language === 'nl-NL' ? 'Dutch (Nederlands)' : 
     });
 
     const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
