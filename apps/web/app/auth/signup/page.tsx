@@ -38,28 +38,28 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] px-4">
+      <div className="max-w-md w-full card">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">VoChat</h1>
-          <p className="text-gray-600">Create your account</p>
+          <h1 className="text-3xl font-bold text-[#3b82f6] mb-2">vochat.io</h1>
+          <p className="text-[#a1a1aa]">Create your account</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
         {message && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">{message}</p>
+          <div className="mb-4 p-3 bg-[#3b82f6]/10 border border-[#3b82f6]/30 rounded-md">
+            <p className="text-sm text-[#3b82f6]">{message}</p>
           </div>
         )}
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-[#e4e4e7] mb-2">
               Email
             </label>
             <input
@@ -68,13 +68,13 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="input w-full"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-[#e4e4e7] mb-2">
               Password
             </label>
             <input
@@ -84,24 +84,24 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="input w-full"
               placeholder="••••••••"
             />
-            <p className="mt-1 text-xs text-gray-500">At least 6 characters</p>
+            <p className="mt-1 text-xs text-[#71717a]">At least 6 characters</p>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account..." : "Sign up"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
+        <p className="mt-6 text-center text-sm text-[#a1a1aa]">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-indigo-600 hover:text-indigo-500 font-medium">
+          <Link href="/auth/login" className="text-[#3b82f6] hover:text-[#2563eb] font-medium">
             Sign in
           </Link>
         </p>

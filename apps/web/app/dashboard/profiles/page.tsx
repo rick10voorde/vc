@@ -25,22 +25,22 @@ export default async function ProfilesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0f0f0f]">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-[#18181b] border-b border-[#27272a]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
             <Link
               href="/dashboard"
-              className="text-sm text-gray-500 hover:text-gray-700 mb-1 inline-block"
+              className="text-sm text-[#a1a1aa] hover:text-[#3b82f6] mb-1 inline-block transition-colors"
             >
               ← Back to Dashboard
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">App Profiles</h1>
+            <h1 className="text-2xl font-bold text-[#3b82f6]">App Profiles</h1>
           </div>
           <Link
             href="/dashboard/profiles/new"
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md shadow-sm transition"
+            className="btn-primary text-sm"
           >
             + New Profile
           </Link>
@@ -50,11 +50,11 @@ export default async function ProfilesPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-medium text-blue-900 mb-1">
+        <div className="bg-[#18181b] border border-[#3b82f6]/30 rounded-lg p-4 mb-6">
+          <h3 className="text-sm font-medium text-[#fafafa] mb-1">
             What are App Profiles?
           </h3>
-          <p className="text-sm text-blue-700">
+          <p className="text-sm text-[#a1a1aa]">
             Create different profiles for different apps to control tone, language, and formatting.
             For example: Professional for Gmail, Direct for Slack, Technical for Terminal.
           </p>
@@ -62,23 +62,23 @@ export default async function ProfilesPage() {
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
         {/* Empty State */}
         {!error && profiles.length === 0 && (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <div className="card p-12 text-center">
+            <h3 className="text-lg font-medium text-[#fafafa] mb-2">
               No profiles yet
             </h3>
-            <p className="text-gray-600 mb-6">
-              Create your first app profile to get started with VoChat.
+            <p className="text-[#a1a1aa] mb-6">
+              Create your first app profile to get started with vochat.io.
             </p>
             <Link
               href="/dashboard/profiles/new"
-              className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md shadow-sm transition"
+              className="btn-primary inline-block"
             >
               Create Your First Profile
             </Link>
