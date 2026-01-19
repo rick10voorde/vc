@@ -1,0 +1,63 @@
+{
+  "productName": "vochat.io",
+  "version": "0.1.0",
+  "identifier": "com.vochat.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "vochat.io",
+        "width": 400,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "windows": ["main", "overlay"],
+          "permissions": [
+            "core:window:allow-set-position",
+            "core:window:allow-set-size",
+            "core:window:allow-current-monitor",
+            "core:window:allow-available-monitors",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:default",
+            "clipboard-manager:allow-write-text",
+            "clipboard-manager:allow-read-text"
+          ]
+        }
+      ]
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png"
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "plugins": {}
+}

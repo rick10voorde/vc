@@ -1,0 +1,22 @@
+{
+  "name": "vochat",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "web": "pnpm --filter web dev",
+    "desktop": "pnpm --filter desktop tauri dev",
+    "desktop:build": "pnpm --filter desktop tauri build",
+    "db:migrate": "node scripts/apply-migrations.mjs",
+    "db:seed": "echo 'See supabase/seed.sql for manual seed instructions'"
+  },
+  "devDependencies": {
+    "postgres": "^3.4.8",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

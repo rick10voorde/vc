@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vochat.io</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="header">
+        <h1>vochat.io</h1>
+        <p class="subtitle">Voice to text AI companion</p>
+      </div>
+
+      <div class="status-card">
+        <h2>Status</h2>
+        <div class="status-item">
+          <span class="status-label">Authentication:</span>
+          <span class="status-value" id="authStatus">Not signed in</span>
+        </div>
+        <div id="userEmail" class="status-item" style="display: none;">
+          <span class="status-label">Email:</span>
+          <span class="status-value" id="userEmailValue"></span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Global hotkey:</span>
+          <span class="status-value">Ctrl + Shift + D</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">System tray:</span>
+          <span class="status-value">Active</span>
+        </div>
+      </div>
+
+      <!-- Auth Section (shown when not signed in) -->
+      <div id="authSection" class="info-card">
+        <h3>Sign in</h3>
+        <form id="authForm" style="display: flex; flex-direction: column; gap: 12px;">
+          <input
+            type="email"
+            id="emailInput"
+            placeholder="Email"
+            required
+          />
+          <input
+            type="password"
+            id="passwordInput"
+            placeholder="Password"
+            required
+          />
+          <div style="display: flex; gap: 8px;">
+            <button type="submit">
+              Sign in
+            </button>
+            <button type="button" id="signUpBtn">
+              Sign up
+            </button>
+          </div>
+          <div id="authError" style="display: none;"></div>
+        </form>
+      </div>
+
+      <!-- Profile Section (shown when signed in) -->
+      <div id="profileSection" class="info-card" style="display: none;">
+        <h3>App profiles</h3>
+        <div id="profilesList">
+          <p style="opacity: 0.7; text-align: center;">Loading...</p>
+        </div>
+        <button id="signOutBtn">
+          Sign out
+        </button>
+      </div>
+
+      <div class="info-card">
+        <h3>How to use</h3>
+        <ol>
+          <li>Press <kbd>Ctrl + Shift + D</kbd> to activate dictation</li>
+          <li>Speak naturally into your microphone</li>
+          <li>Your text will be refined and inserted automatically</li>
+          <li>Release to stop recording</li>
+        </ol>
+      </div>
+
+      <div class="info-card">
+        <h3>Voice commands</h3>
+        <ul>
+          <li>"nieuwe regel" - adds a line break</li>
+          <li>"punt" - adds a period</li>
+          <li>"komma" - adds a comma</li>
+          <li>"vraagteken" - adds a question mark</li>
+        </ul>
+      </div>
+
+      <div class="footer">
+        <p>vochat.io - voice dictation powered by AI</p>
+        <p class="small">Minimize to system tray to keep running in background</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
